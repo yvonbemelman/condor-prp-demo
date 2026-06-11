@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Voeg na publicatie de definitieve sitemap-URL toe:
+# Sitemap: https://www.jouwdomein.nl/sitemap.xml
