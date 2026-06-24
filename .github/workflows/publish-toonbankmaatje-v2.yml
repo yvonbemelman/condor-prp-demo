@@ -1,0 +1,38 @@
+name: Publish refreshed Toonbankmaatje web version
+on:
+  push:
+    paths:
+      - .github/workflows/publish-toonbankmaatje-v2.yml
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build standalone refreshed page
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import base64
+
+          source = Path('toonbankmaatje/app.html')
+          image = Path('toonbankmaatje/intro-fixed.jpg')
+          target = Path('toonbankmaatje/start.html')
+
+          html = source.read_text(encoding='utf-8')
+          data = base64.b64encode(image.read_bytes()).decode('ascii')
+          old = 'src="https://yvonbemelman.github.io/condor-prp-demo/toonbankmaatje/intro-fixed.jpg?v=4"'
+          if old not in html:
+              old = 'src="intro-fixed.jpg?v=3"'
+          html = html.replace(old, f'src="data:image/jpeg;base64,{data}"')
+          html = html.replace('<title>Toonbankmaatje</title>', '<title>Toonbankmaatje - vernieuwd</title>')
+          target.write_text(html, encoding='utf-8')
+          PY
+      - name: Commit refreshed page
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add toonbankmaatje/start.html
+          git diff --cached --quiet || git commit -m "Publish refreshed Toonbankmaatje with embedded photo"
+          git push
