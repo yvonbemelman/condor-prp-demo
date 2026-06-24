@@ -1,0 +1,41 @@
+name: Sharpen Toonbankmaatje web photo
+
+on:
+  push:
+    paths:
+      - '.github/workflows/sharpen-toonbankmaatje-photo.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  sharpen-photo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract and improve the embedded photo
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import base64, re
+          svg = Path('toonbankmaatje/intro.svg').read_text(encoding='utf-8')
+          data = re.search(r'base64,([^\"]+)', svg).group(1)
+          Path('/tmp/intro-small.jpg').write_bytes(base64.b64decode(data))
+          PY
+          convert /tmp/intro-small.jpg -filter Lanczos -resize 800x600 -unsharp 0x0.8+0.7+0.02 -quality 88 toonbankmaatje/intro-sharp.jpg
+      - name: Use the improved photo
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('toonbankmaatje/app.html')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace('src="intro.svg"', 'src="intro-sharp.jpg?v=2"', 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Commit update
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add toonbankmaatje/app.html toonbankmaatje/intro-sharp.jpg
+          git commit -m 'Improve Toonbankmaatje photo quality'
+          git push
