@@ -1,0 +1,40 @@
+name: Improve Toonbankmaatje sentence feedback
+on:
+  push:
+    paths:
+      - .github/workflows/smarter-toonbank-check.yml
+permissions:
+  contents: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make sentence checks smarter
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('toonbankmaatje/app.html')
+          text = path.read_text(encoding='utf-8')
+
+          start = text.index('function quality(v){')
+          end = text.index('function cls(v){', start)
+          quality = """function quality(v){let t=(v||'').trim().toLowerCase(),letters=t.match(/[a-z]/g)||[],words=t.match(/[a-z]+/g)||[];if(!t)return'Vul eerst een echte productzin of klantvraag in.';if(letters.length<3||/^[\\d\\s!?.,-]+$/.test(t))return'Gebruik gewone woorden, bijvoorbeeld: Wat maakt dit product bijzonder?';if(/(.)\\1{4,}/.test(t)||['asdf','qwerty','bla bla','blabla','test test','onzin','poep','lalala','xyzxyz'].some(x=>t.includes(x)))return'Deze invoer lijkt geen echte product- of klantvraag. Probeer bijvoorbeeld: Waarom kiezen jullie dit product?';if(/\\b(stom(?:me)?|dom(?:me)?|idioot|sukkel|achterlijk|lelijk|irritant)\\b|rot\\s+op|hou\\s+je\\s+mond/i.test(t))return'Dit is geen passende toonbankzin. Schrijf een klantvriendelijke zin over het product, bijvoorbeeld: Ik vertel graag hoe dit product wordt gemaakt.';if(/\\b(wc|toilet|voetbal|koning|hoofdstad|mop|weerbericht)\\b/i.test(t)||['hoe laat is het','wat is het weer','wie is de koning','voetbalwedstrijd','vertel een mop','wat is de hoofdstad','hoe oud ben je'].some(x=>t.includes(x)))return'Deze vraag gaat niet over een product of klantgesprek. Vraag bijvoorbeeld naar herkomst, bereiding, smaak, prijs, ingrediënten of gebruik.';if(words.length>2&&new Set(words).size===1)return'Dezelfde woorden worden steeds herhaald. Stel één concrete vraag.';return''}"""
+          text = text[:start] + quality + text[end:]
+
+          cls_end = text.index('function out(el,c){', text.index('function cls(v){'))
+          review = """function review(v){let c=cls(v);if(c[0]!=='green')return c;let t=(v||'').toLowerCase(),concrete=['herkomst','gemaakt','bereid','bereiding','recept','ingrediënt','smaak','korst','rijping','vers','gesneden','etiket','lunch','borrel','maaltijd','gebruik'].some(x=>t.includes(x));if(!concrete){let p=cur();return['orange','Nog te algemeen: vertel iets over het product',`Noem bijvoorbeeld ${p.facts}. Dan krijgt de klant een concreet en controleerbaar antwoord.`]}return['green','Bruikbare, concrete toonbankzin','De zin vertelt iets concreets over het product. Controleer nog wel of de informatie feitelijk klopt.']}"""
+          text = text[:cls_end] + review + text[cls_end:]
+          text = text.replace("if(e.target.id==='review')out(sentenceOut,cls(mySentence.value));", "if(e.target.id==='review')out(sentenceOut,review(mySentence.value));")
+
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Commit updated app
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add toonbankmaatje/app.html
+          git diff --cached --quiet || git commit -m "Make Toonbankmaatje feedback more specific"
+          git push
