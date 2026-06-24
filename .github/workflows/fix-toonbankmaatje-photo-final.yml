@@ -1,0 +1,37 @@
+name: Fix Toonbankmaatje photo final
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-toonbankmaatje-photo-final.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix-photo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install image tools
+        run: sudo apt-get update && sudo apt-get install -y imagemagick
+      - name: Remove gray strip and improve clarity
+        run: |
+          convert toonbankmaatje/intro-sharp.jpg -crop 800x425+0+0 +repage -filter Lanczos -resize 800x450 -despeckle -unsharp 0x1.0+0.9+0.02 -quality 92 toonbankmaatje/intro-fixed.jpg
+      - name: Use corrected web photo
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('toonbankmaatje/app.html')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace('aspect-ratio:4/3;object-fit:contain', 'aspect-ratio:16/9;object-fit:contain', 1)
+          text = text.replace('src="intro-sharp.jpg?v=2"', 'src="intro-fixed.jpg?v=3"', 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Commit update
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add toonbankmaatje/app.html toonbankmaatje/intro-fixed.jpg
+          git commit -m 'Remove gray strip from Toonbankmaatje photo'
+          git push
