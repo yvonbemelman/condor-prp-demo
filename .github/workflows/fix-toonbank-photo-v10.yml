@@ -1,0 +1,33 @@
+name: Fix Toonbankmaatje photo v10
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-toonbank-photo-v10.yml'
+permissions:
+  contents: write
+jobs:
+  fix-photo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Point app to stable photo
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          for name in ['docs/toonbankmaatje/app.html', 'toonbankmaatje/app.html']:
+              p = Path(name)
+              text = p.read_text(encoding='utf-8')
+              text = text.replace('intro-full-v7.jpg?v=7', 'intro-full.jpg?v=10')
+              text = text.replace('intro-full-v8.jpg?v=8', 'intro-full.jpg?v=10')
+              text = text.replace('intro-full-v9.jpg?v=9', 'intro-full.jpg?v=10')
+              text = text.replace('aspect-ratio:16/9', 'aspect-ratio:4/3')
+              text = text.replace('object-fit:cover', 'object-fit:contain')
+              p.write_text(text, encoding='utf-8')
+          PY
+      - name: Commit update
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/toonbankmaatje/app.html toonbankmaatje/app.html
+          git diff --cached --quiet || git commit -m 'Fix Toonbankmaatje photo reference'
+          git push
